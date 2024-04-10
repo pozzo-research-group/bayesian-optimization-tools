@@ -1,4 +1,5 @@
 from typing import Any, Callable, List, Optional
+from abc import ABC, abstractmethod
 
 import botorch
 import torch
@@ -10,10 +11,9 @@ from gpytorch.mlls import ExactMarginalLogLikelihood
 from gpytorch.mlls.sum_marginal_log_likelihood import SumMarginalLogLikelihood
 from torch import Tensor
 
-from bot.models.base import Model 
 import pdb
 
-class GPModel(Model):
+class GPModel:
     r"""Base class for Gaussian Process Model
 
     Inputs:
@@ -95,7 +95,7 @@ class SingleTaskGP(GPModel):
             train_x, train_y, outcome_transform=Standardize(m=1)).to(train_x)
         self.mll = ExactMarginalLogLikelihood(
             self.gp.likelihood, self.gp).to(train_x)
-        pdb.set_trace()
+
         self.fit_gp_model()
         return self.gp
 
