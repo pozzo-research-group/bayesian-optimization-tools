@@ -7,8 +7,9 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 torch.set_default_dtype(torch.double)
 from botorch.optim import optimize_acqf
 from botorch.utils.transforms import normalize, unnormalize
+from botorch.acquisition.monte_carlo import  qExpectedImprovement
 
-from bot.models.utils import initialize_model, construct_acqf_by_model, initialize_points
+from bot.models.utils import *
 from bot.datatools.base import FunctionValuedExperiment 
 
 parser = argparse.ArgumentParser(
@@ -38,11 +39,11 @@ if ITERATION==0:
 
 
 """ Set up design space bounds """
-design_space_bounds = [(-10, 10), (0.1,1.0)]
+design_space_bounds = [(-5, 5), (0.1,1.0)]
 bounds = torch.tensor(design_space_bounds).transpose(-1, -2).to(device)
 
 """ Create a GP model class for surrogate """
-model_args = {"model":"gp", "num_epochs" : 2500,"learning_rate" : 1e-3}
+model_args = {"model":"gp", "num_epochs" : 1000,"learning_rate" : 1e-3}
 
 """ Helper functions """
 def featurize(expt):
@@ -54,7 +55,7 @@ def featurize(expt):
     train_x = torch.from_numpy(expt.comps).to(device)
     train_y = []
     for i in range(num_samples):
-        train_y.append(distance.euclidean(expt.spectra[i,:], target_spectra))
+        train_y.append(-1.0*distance.euclidean(expt.spectra[i,:], target_spectra))
 
     train_y = np.asarray(train_y)
     train_y = torch.from_numpy(train_y).to(device)
@@ -73,7 +74,7 @@ def run_iteration(expt):
     print('Data shapes : ', comps_all.shape, spectra_all.shape)
 
     standard_bounds = torch.tensor([(float(1e-5), 1.0) for _ in range(DESIGN_SPACE_DIM)]).transpose(-1, -2).to(device)
-    gp_model = initialize_model(MODEL_NAME, model_args, DESIGN_SPACE_DIM, OUTPUT_DIM, device) 
+    gp_model = initialize_model(MODEL_NAME, model_args, DESIGN_SPACE_DIM, OUTPUT_DIM) 
 
     train_x, train_y = featurize(expt)
     print(train_x.shape, train_y.shape)
@@ -81,7 +82,7 @@ def run_iteration(expt):
     gp_model = gp_model.fit(normalized_x, train_y)
     torch.save(gp_model.state_dict(), SAVE_DIR+'gp_model_%d.pt'%ITERATION)
 
-    acquisition = construct_acqf_by_model(gp_model, normalized_x, train_y, OUTPUT_DIM)
+    acquisition = qExpectedImprovement(gp_model, best_f = 0.0)
 
     normalized_candidates, acqf_values = optimize_acqf(
         acquisition, 
@@ -133,4 +134,6 @@ else:
     comps_new, gp_model, acquisition, train_x = run_iteration(expt)
     np.save(EXPT_DATA_DIR+'comps_%d.npy'%(ITERATION), comps_new)
     _, spectra = generate_spectra(comps_new)
-    np.save(EXPT_DATA_DIR+'spectra_%d.npy'%ITERATION, spectra)
+    np.save(EXPT_DATA_DIR+'spectra_%d.npy'%ITERATION, spectra) 
+
+    best_score, best_point = get_current_best(gp_model, bounds, q=1)
