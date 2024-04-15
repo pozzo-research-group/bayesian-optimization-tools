@@ -42,10 +42,7 @@ design_space_bounds = [(-10, 10), (0.1,1.0)]
 bounds = torch.tensor(design_space_bounds).transpose(-1, -2).to(device)
 
 """ Create a GP model class for surrogate """
-model_args = {"model":"gp",
-"num_epochs" : 2500,
-"learning_rate" : 1e-3
-}
+model_args = {"model":"gp", "num_epochs" : 2500,"learning_rate" : 1e-3}
 
 """ Helper functions """
 def featurize(expt):

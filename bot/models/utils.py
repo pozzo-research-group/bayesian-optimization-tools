@@ -6,7 +6,7 @@ from botorch.acquisition.objective import ScalarizedPosteriorTransform
 from .gp import SingleTaskGP, MultiTaskGP 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def initialize_model(model_name, model_args, input_dim, output_dim, device):
+def initialize_model(model_name, model_args, input_dim, output_dim):
     if model_name == 'gp':
         if output_dim == 1:
             return SingleTaskGP(model_args, input_dim, output_dim)
@@ -24,19 +24,18 @@ def initialize_points(bounds, n_init_points, device):
 
     return init_x
 
-def construct_acqf_by_model(model, train_x, train_y, num_objectives=1):
+def construct_acqf_by_model(model, train_x, train_y, beta=1.0, num_objectives=1):
     dim = train_y.shape[1]
     sampler = StochasticSampler(sample_shape=torch.Size([256]))
     if num_objectives==1:
-        acqf = qUpperConfidenceBound(model=model, beta=100, sampler=sampler)
+        acqf = qUpperConfidenceBound(model=model, beta=beta, sampler=sampler)
     else:
         weights = torch.ones(dim)/dim
         posterior_transform = ScalarizedPosteriorTransform(weights.to(train_x))
         acqf = qUpperConfidenceBound(model=model, 
-        beta=100, 
+        beta=beta, 
         sampler=sampler,
         posterior_transform = posterior_transform
         )
-
 
     return acqf 
